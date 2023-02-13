@@ -58,4 +58,22 @@ object Form12: TForm12
     TabOrder = 4
     TextHint = 'Enter your message...'
   end
+  object btnSendLocation: TButton
+    Left = 247
+    Top = 248
+    Width = 169
+    Height = 25
+    Caption = #1054#1090#1087#1088#1072#1074#1080#1090#1100' '#1083#1086#1082#1072#1094#1080#1102
+    TabOrder = 5
+    OnClick = btnSendLocationClick
+  end
+  object btnSendFile: TButton
+    Left = 247
+    Top = 279
+    Width = 169
+    Height = 25
+    Caption = #1054#1090#1087#1088#1072#1074#1080#1090#1100' '#1092#1072#1081#1083
+    TabOrder = 6
+    OnClick = btnSendFileClick
+  end
 end

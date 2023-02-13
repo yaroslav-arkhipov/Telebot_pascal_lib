@@ -4,7 +4,7 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, TeleBotAPI;
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, TeleBotAPI, Vcl.ExtCtrls;
 
 type
   TForm12 = class(TForm)
@@ -13,11 +13,15 @@ type
     btnSendMessage: TButton;
     btnGetMessages: TButton;
     edtMsg: TEdit;
+    btnSendLocation: TButton;
+    btnSendFile: TButton;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure btnBotCheckClick(Sender: TObject);
     procedure btnSendMessageClick(Sender: TObject);
     procedure btnGetMessagesClick(Sender: TObject);
+    procedure btnSendLocationClick(Sender: TObject);
+    procedure btnSendFileClick(Sender: TObject);
   private
     FBot: TTeleBot;
     procedure CallBack(AUserID, AUserName, AUserMessage: String);
@@ -47,6 +51,22 @@ end;
 procedure TForm12.btnGetMessagesClick(Sender: TObject);
 begin
   FBot.StartListenMessages(CallBack);
+end;
+
+procedure TForm12.btnSendFileClick(Sender: TObject);
+var
+  LResponse: String;
+begin
+  LResponse := FBot.SendFile(<Enter dialog ID>, <Enter File name>);
+  Memo1.Lines.Add(LResponse);
+end;
+
+procedure TForm12.btnSendLocationClick(Sender: TObject);
+var
+  LResponse: String;
+begin
+  LResponse := FBot.SendLocation(<Enter dialog ID>, <Enter Latitude>, <Enter Longitude>);
+  Memo1.Lines.Add(LResponse);
 end;
 
 procedure TForm12.btnSendMessageClick(Sender: TObject);

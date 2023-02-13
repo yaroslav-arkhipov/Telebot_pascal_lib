@@ -5,12 +5,14 @@ interface
 uses System.Classes, Winapi.Windows, Winapi.Messages, System.SysUtils, System.JSON,
      System.Variants, Generics.Collections, IdBaseComponent, IdComponent, Vcl.Dialogs,
      IdTCPConnection, IdTCPClient, IdHTTP, IdGlobal, IdGlobalProtocols, IdCoderMIME,
-     IdIOHandler, IdIOHandlerSocket, IdIOHandlerStack, IdSSL, IdSSLOpenSSL;
+     IdIOHandler, IdIOHandlerSocket, IdIOHandlerStack, IdSSL, IdSSLOpenSSL, IdMultipartFormData;
 
 const
-  cBaseUrl      ='https://api.telegram.org/bot';
+  cBaseUrl      = 'https://api.telegram.org/bot';
   cGetMe        = '/GetMe';
   cSendMessage  = '/sendmessage?' + 'chat_id=%s&text=%s';
+  cSendLocation = '/sendLocation';
+  cSendDocument = '/sendDocument';
 
 type
   TCallbackProc = procedure(AUserID, AUserName, AUserMessage: String) of object; //procedure for notify of new messages
@@ -53,7 +55,9 @@ type
     constructor Create(AToken: String);
     destructor Destroy; override;
     function CheckBot: Boolean;
-    function SendMessage(AUserID, AText: String): String;
+    function SendMessage(const AUserID, AText: String): String;
+    function SendLocation(const AUserID, ALatitude, ALongitude: String): String;
+    function SendFile(const AUserID, AFileName: String): String;
     procedure StartListenMessages(CallProc: TCallbackProc);
     property LastResponse: String read FLastResponse;
     property LastResponseCode: Integer read FLastResponseCode;
@@ -83,6 +87,7 @@ function TTeleBot.CheckBot: Boolean; //check is bot active
 begin
   Result := False;
   try
+    FHTTPConnection.Request.ContentType := 'application/json';
     FLastResponse := FHTTPConnection.Get(cBaseUrl + FTelegramToken + cGetMe);
     FLastResponseCode := FHTTPConnection.ResponseCode;
     FJSONParser := TJSONObject.ParseJSONValue(FLastResponse, False, True) as TJSONObject;
@@ -132,7 +137,10 @@ begin
     FreeAndNil(FHTTPConnection);
 
   if Assigned(FMessageListener) then
+  begin
     FMessageListener.Terminate;
+    FMessageListener.Free;
+  end;
   inherited;
 end;
 
@@ -146,16 +154,90 @@ begin
   Result := FHTTPConnection.Request.UserAgent;
 end;
 
-function TTeleBot.SendMessage(AUserID, AText: String): String; //AUserID - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+function TTeleBot.SendFile(const AUserID, AFileName: String): String;
+var
+  LFormData: TIdMultipartFormDataStream;
+begin
+  FHTTPConnection.Request.ContentType := 'multipart/form-data';
+  LFormData := TIdMultipartFormDataStream.Create;
+  try
+    LFormData.AddFile('document', AFileName);
+    LFormData.AddFormField('chat_id', AUserID);
+
+    try
+      FLastResponse := FHTTPConnection.Post(cBaseUrl + FTelegramToken + cSendDocument, LFormData);
+      FLastResponseCode := FHTTPConnection.ResponseCode;
+
+      if FLastResponse.Trim = '' then
+      begin
+        Result := 'Этого пользователя нет в списке контактов!';
+        Exit;
+      end;
+
+      FJSONParser := TJSONObject.ParseJSONValue(FLastResponse, False, True) as TJSONObject;
+      if FJSONParser.Values['ok'].Value = 'true' then
+        Result := 'Бот ' + FJSONParser.FindValue('result.from.username').Value + ' отправил файл : ' + FJSONParser.FindValue('result.text').Value;
+    except
+      on E: Exception do
+      begin
+        ShowMessage('Что то пошло не так, для подроностей обратитесь к свойству LastError!');
+        FLastError := E.Message;
+      end;
+    end;
+  finally
+    LFormData.Free;
+  end;
+end;
+
+function TTeleBot.SendLocation(const AUserID, ALatitude, ALongitude: String): String;
+var
+  LList: TStringList;
+begin
+  FHTTPConnection.Request.ContentType := 'application/json';
+  LList := TStringList.Create;
+  try
+    LList.AddPair('chat_id', AUserID);
+    LList.AddPair('latitude', ALatitude);
+    LList.AddPair('longitude', ALongitude);
+
+    try
+      FLastResponse := FHTTPConnection.Post(cBaseUrl + FTelegramToken + cSendLocation, LList);
+      FLastResponseCode := FHTTPConnection.ResponseCode;
+
+      if FLastResponse.Trim = '' then
+      begin
+        Result := 'Этого пользователя нет в списке контактов!';
+        Exit;
+      end;
+
+      FJSONParser := TJSONObject.ParseJSONValue(FLastResponse, False, True) as TJSONObject;
+      if FJSONParser.Values['ok'].Value = 'true' then
+        Result := 'Бот ' + FJSONParser.FindValue('result.from.username').Value + ' отправил геолокацию: ' + FJSONParser.FindValue('result.text').Value;
+    except
+      on E: Exception do
+      begin
+        ShowMessage('Что то пошло не так, для подроностей обратитесь к свойству LastError!');
+        FLastError := E.Message;
+      end;
+    end;
+  finally
+    LList.Free;
+  end;
+end;
+
+function TTeleBot.SendMessage(const AUserID, AText: String): String; //AUserID - Unique identifier for the target chat or username of the target channel (in the format @channelusername)
 var
   Request: String;
+  LText: String;
 begin
-  AText := UrlEncode(AnsiToUtf8(AText));
-  Request := Format(cSendMessage, [AUserID, AText]);
+  LText := UrlEncode(AnsiToUtf8(AText));
+  Request := Format(cSendMessage, [AUserID, LText]);
+  FHTTPConnection.Request.ContentType := 'application/json';
 
   try
     FLastResponse := FHTTPConnection.Get(cBaseUrl + FTelegramToken + Request);
     FLastResponseCode := FHTTPConnection.ResponseCode;
+
     if FLastResponse.Trim = '' then
     begin
       Result := 'Этого пользователя нет в списке контактов!';
@@ -188,12 +270,16 @@ end;
 
 procedure TTeleBot.StartListenMessages(CallProc: TCallbackProc);
 begin
+  if Assigned(FMessageListener) then
+  begin
+    FMessageListener.Terminate;
+    FMessageListener.Free;
+  end;
   FMessageListener := TTelegramListener.Create(False);
   FMessageListener.Priority := tpLowest;
   FMessageListener.FreeOnTerminate := True;
   FMessageListener.Callback :=  CallProc;
   FMessageListener.TelegramToken := FTelegramToken;
-  //FMessageListener.Resume;
 end;
 
 { TTelegramListener }
@@ -240,39 +326,47 @@ begin
   LJSONParser := TJSONObject.Create;
   LResronseList := TStringList.Create;
   try
-    while True do
+    while not Terminated do
     begin
-      FResponse := LidHTTP.Get(cBaseUrl + FTelegramToken + '/getUpdates?offset=' + IntToStr(Offset) + '&timeout=30');
-      if FResponse.Trim = '' then
-        Continue;
-      LArrJSON := ((TJSONObject.ParseJSONValue(FResponse) as TJSONObject).GetValue('result') as TJSONArray);
 
-      if lArrJSON.Count <= 0 then Continue;
-
-      LResronseList.Clear;
-      for var I := 0 to LArrJSON.Count - 1 do
-        LResronseList.Add(LArrJSON.Items[I].ToJSON);
-
-      Offset := LResronseList.Count;
-      if Offset > PrevOffset then
+      if Assigned(LidHTTP) then
       begin
-        LJSONParser := TJSONObject.ParseJSONValue(LResronseList[LResronseList.Count - 1], False, True) as TJSONObject;
-        if LJSONParser.FindValue('message.text').Value.Trim <> '' then
+        FResponse := LidHTTP.Get(cBaseUrl + FTelegramToken + '/getUpdates?offset=' + IntToStr(Offset) + '&timeout=30');
+        if FResponse.Trim = '' then
+          Continue;
+        LArrJSON := ((TJSONObject.ParseJSONValue(FResponse) as TJSONObject).GetValue('result') as TJSONArray);
+
+        if lArrJSON.Count <= 0 then Continue;
+
+        LResronseList.Clear;
+        for var I := 0 to LArrJSON.Count - 1 do
+          LResronseList.Add(LArrJSON.Items[I].ToJSON);
+
+        Offset := LResronseList.Count;
+        if Offset > PrevOffset then
         begin
-          FUserID := LJSONParser.FindValue('message.from.id').Value; //Его ИД по которому можем ему написать
-          FUserName := LJSONParser.FindValue('message.from.first_name').Value;
-          if LJSONParser.FindValue('message.from.last_name') <> nil then
-            FUserName := LJSONParser.FindValue('message.from.first_name').Value + ' ' + LJSONParser.FindValue('message.from.last_name').Value; //Это имя написавшего боту
-          FUserMessage :=  LJSONParser.FindValue('message.text').Value;  //Текст сообщения
-          Synchronize(Status); // Сообщим что есть ответ
+          LJSONParser := TJSONObject.ParseJSONValue(LResronseList[LResronseList.Count - 1], False, True) as TJSONObject;
+          if (LJSONParser.FindValue('message.text') <> nil) and (LJSONParser.FindValue('message.text').Value.Trim <> '') then
+          begin
+            if LJSONParser.FindValue('message.from.id') <> nil then
+              FUserID := LJSONParser.FindValue('message.from.id').Value; //Его ИД по которому можем ему написать
+
+            if LJSONParser.FindValue('message.from.first_name') <> nil then
+              FUserName := LJSONParser.FindValue('message.from.first_name').Value;
+
+            if (LJSONParser.FindValue('message.from.first_name') <> nil) and (LJSONParser.FindValue('message.from.last_name') <> nil) then
+              FUserName := LJSONParser.FindValue('message.from.first_name').Value + ' ' + LJSONParser.FindValue('message.from.last_name').Value; //Это имя написавшего боту
+
+            if LJSONParser.FindValue('message.text') <> nil then
+              FUserMessage :=  LJSONParser.FindValue('message.text').Value;  //Текст сообщения
+            Synchronize(Status); // Сообщим что есть ответ
+          end;
+          PrevOffset := LResronseList.Count;
         end;
-        PrevOffset := LResronseList.Count;
       end;
-      if Terminated then Break;
     end;
   finally
-    LSSLSocketHandler.Free;
-    LidHTTP.Free;
+    FreeAndNil(LidHTTP);
     FreeAndNil(LJSONParser);
     FreeAndNil(LResronseList);
   end;
