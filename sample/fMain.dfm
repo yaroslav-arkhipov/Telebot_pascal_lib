@@ -63,7 +63,7 @@ object Form12: TForm12
     Top = 248
     Width = 169
     Height = 25
-    Caption = #1054#1090#1087#1088#1072#1074#1080#1090#1100' '#1083#1086#1082#1072#1094#1080#1102
+    Caption = 'Send location'
     TabOrder = 5
     OnClick = btnSendLocationClick
   end
@@ -72,8 +72,26 @@ object Form12: TForm12
     Top = 279
     Width = 169
     Height = 25
-    Caption = #1054#1090#1087#1088#1072#1074#1080#1090#1100' '#1092#1072#1081#1083
+    Caption = 'Send file'
     TabOrder = 6
     OnClick = btnSendFileClick
+  end
+  object btnSendPhoto: TButton
+    Left = 247
+    Top = 310
+    Width = 169
+    Height = 25
+    Caption = 'Send photo'
+    TabOrder = 7
+    OnClick = btnSendPhotoClick
+  end
+  object btnSendVideo: TButton
+    Left = 247
+    Top = 342
+    Width = 169
+    Height = 25
+    Caption = 'Send video'
+    TabOrder = 8
+    OnClick = btnSendVideoClick
   end
 end

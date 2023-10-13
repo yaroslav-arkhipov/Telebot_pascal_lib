@@ -13,6 +13,9 @@ const
   cSendMessage  = '/sendmessage?' + 'chat_id=%s&text=%s';
   cSendLocation = '/sendLocation';
   cSendDocument = '/sendDocument';
+  cSendPhoto    = '/sendPhoto';
+  cSendAudio    = '/sendAudio';
+  cSendVideo    = '/sendVideo';
 
 type
   TCallbackProc = procedure(AUserID, AUserName, AUserMessage: String) of object; //procedure for notify of new messages
@@ -55,9 +58,14 @@ type
     constructor Create(AToken: String);
     destructor Destroy; override;
     function CheckBot: Boolean;
+
     function SendMessage(const AUserID, AText: String): String;
     function SendLocation(const AUserID, ALatitude, ALongitude: String): String;
     function SendFile(const AUserID, AFileName: String): String;
+    function SendPhoto(const AUserID, AFileName: String; AFileCaption: String = ''): String;
+    function SendAudio(const AUserID, AFileName: String; AFileCaption: String = ''): String;
+    function SendVideo(const AUserID, AFileName: String; AFileCaption: String = ''): String;
+
     procedure StartListenMessages(CallProc: TCallbackProc);
     property LastResponse: String read FLastResponse;
     property LastResponseCode: Integer read FLastResponseCode;
@@ -95,7 +103,7 @@ begin
   except
     on E: Exception do
     begin
-      ShowMessage('„то то пошло не так, дл€ подроностей обратитесь к свойству LastError!');
+      ShowMessage(Format('Error: %s!', [E.Message]));
       FLastError := E.Message;
     end;
   end;
@@ -154,6 +162,43 @@ begin
   Result := FHTTPConnection.Request.UserAgent;
 end;
 
+function TTeleBot.SendAudio(const AUserID, AFileName: String; AFileCaption: String = ''): String;
+var
+  LFormData: TIdMultipartFormDataStream;
+begin
+  FHTTPConnection.Request.ContentType := 'multipart/form-data';
+  LFormData := TIdMultipartFormDataStream.Create;
+  try
+    LFormData.AddFile('audio', AFileName);
+    LFormData.AddFormField('chat_id', AUserID);
+    if Trim(AFileCaption) <> '' then
+      LFormData.AddFormField('caption', AFileCaption, 'utf-8').ContentTransfer := '8bit';
+
+    try
+      FLastResponse := FHTTPConnection.Post(cBaseUrl + FTelegramToken + cSendAudio, LFormData);
+      FLastResponseCode := FHTTPConnection.ResponseCode;
+
+      if FLastResponse.Trim = '' then
+      begin
+        Result := 'This user is not in your contacts list!';
+        Exit;
+      end;
+
+      FJSONParser := TJSONObject.ParseJSONValue(FLastResponse, False, True) as TJSONObject;
+      if FJSONParser.Values['ok'].Value = 'true' then
+        Result := 'Bot ' + FJSONParser.FindValue('result.from.username').Value + ' sent a audio: ' + ExtractFileName(AFileName);
+    except
+      on E: Exception do
+      begin
+        ShowMessage(Format('Error: %s!', [E.Message]));
+        FLastError := E.Message;
+      end;
+    end;
+  finally
+    LFormData.Free;
+  end;
+end;
+
 function TTeleBot.SendFile(const AUserID, AFileName: String): String;
 var
   LFormData: TIdMultipartFormDataStream;
@@ -170,7 +215,7 @@ begin
 
       if FLastResponse.Trim = '' then
       begin
-        Result := 'Ётого пользовател€ нет в списке контактов!';
+        Result := 'This user is not in your contacts list!';
         Exit;
       end;
 
@@ -180,7 +225,7 @@ begin
     except
       on E: Exception do
       begin
-        ShowMessage('„то то пошло не так, дл€ подроностей обратитесь к свойству LastError!');
+        ShowMessage(Format('Error: %s!', [E.Message]));
         FLastError := E.Message;
       end;
     end;
@@ -206,17 +251,17 @@ begin
 
       if FLastResponse.Trim = '' then
       begin
-        Result := 'Ётого пользовател€ нет в списке контактов!';
+        Result := 'This user is not in your contacts list!';
         Exit;
       end;
 
       FJSONParser := TJSONObject.ParseJSONValue(FLastResponse, False, True) as TJSONObject;
       if FJSONParser.Values['ok'].Value = 'true' then
-        Result := 'Ѕот ' + FJSONParser.FindValue('result.from.username').Value + ' отправил геолокацию: ' + FJSONParser.FindValue('result.text').Value;
+        Result := 'Bot ' + FJSONParser.FindValue('result.from.username').Value + ' sent geolocation: ' + FJSONParser.FindValue('result.text').Value;
     except
       on E: Exception do
       begin
-        ShowMessage('„то то пошло не так, дл€ подроностей обратитесь к свойству LastError!');
+        ShowMessage(Format('Error: %s!', [E.Message]));
         FLastError := E.Message;
       end;
     end;
@@ -240,19 +285,93 @@ begin
 
     if FLastResponse.Trim = '' then
     begin
-      Result := 'Ётого пользовател€ нет в списке контактов!';
+      Result := 'This user is not in your contacts list!';
       Exit;
     end;
 
     FJSONParser := TJSONObject.ParseJSONValue(FLastResponse, False, True) as TJSONObject;
     if FJSONParser.Values['ok'].Value = 'true' then
-      Result := 'Ѕот ' + FJSONParser.FindValue('result.from.username').Value + ' отправил сообщение : ' + FJSONParser.FindValue('result.text').Value;
+      Result := 'Bot ' + FJSONParser.FindValue('result.from.username').Value + ' sent a message: ' + FJSONParser.FindValue('result.text').Value;
   except
     on E: Exception do
     begin
-      ShowMessage('„то то пошло не так, дл€ подроностей обратитесь к свойству LastError!');
+      ShowMessage(Format('Error: %s!', [E.Message]));
       FLastError := E.Message;
     end;
+  end;
+end;
+
+function TTeleBot.SendPhoto(const AUserID, AFileName: String; AFileCaption: String = ''): String;
+var
+  LFormData: TIdMultipartFormDataStream;
+begin
+  FHTTPConnection.Request.ContentType := 'multipart/form-data';
+  LFormData := TIdMultipartFormDataStream.Create;
+  try
+    LFormData.AddFile('photo', AFileName);
+    LFormData.AddFormField('chat_id', AUserID);
+    if Trim(AFileCaption) <> '' then
+      LFormData.AddFormField('caption', AFileCaption, 'utf-8').ContentTransfer := '8bit';
+
+    try
+      FLastResponse := FHTTPConnection.Post(cBaseUrl + FTelegramToken + cSendPhoto, LFormData);
+      FLastResponseCode := FHTTPConnection.ResponseCode;
+
+      if FLastResponse.Trim = '' then
+      begin
+        Result := 'This user is not in your contacts list!';
+        Exit;
+      end;
+
+      FJSONParser := TJSONObject.ParseJSONValue(FLastResponse, False, True) as TJSONObject;
+      if FJSONParser.Values['ok'].Value = 'true' then
+        Result := 'Bot ' + FJSONParser.FindValue('result.from.username').Value + ' sent a photo: ' + ExtractFileName(AFileName);
+    except
+      on E: Exception do
+      begin
+        ShowMessage(Format('Error: %s!', [E.Message]));
+        FLastError := E.Message;
+      end;
+    end;
+  finally
+    LFormData.Free;
+  end;
+end;
+
+function TTeleBot.SendVideo(const AUserID, AFileName: String; AFileCaption: String = ''): String;
+var
+  LFormData: TIdMultipartFormDataStream;
+begin
+  FHTTPConnection.Request.ContentType := 'multipart/form-data';
+  LFormData := TIdMultipartFormDataStream.Create;
+  try
+    LFormData.AddFile('video', AFileName);
+    LFormData.AddFormField('chat_id', AUserID);
+    if Trim(AFileCaption) <> '' then
+      LFormData.AddFormField('caption', AFileCaption, 'utf-8').ContentTransfer := '8bit';
+
+    try
+      FLastResponse := FHTTPConnection.Post(cBaseUrl + FTelegramToken + cSendVideo, LFormData);
+      FLastResponseCode := FHTTPConnection.ResponseCode;
+
+      if FLastResponse.Trim = '' then
+      begin
+        Result := 'This user is not in your contacts list!';
+        Exit;
+      end;
+
+      FJSONParser := TJSONObject.ParseJSONValue(FLastResponse, False, True) as TJSONObject;
+      if FJSONParser.Values['ok'].Value = 'true' then
+        Result := 'Bot ' + FJSONParser.FindValue('result.from.username').Value + ' sent a video: ' + ExtractFileName(AFileName);
+    except
+      on E: Exception do
+      begin
+        ShowMessage(Format('Error: %s!', [E.Message]));
+        FLastError := E.Message;
+      end;
+    end;
+  finally
+    LFormData.Free;
   end;
 end;
 
@@ -349,17 +468,17 @@ begin
           if (LJSONParser.FindValue('message.text') <> nil) and (LJSONParser.FindValue('message.text').Value.Trim <> '') then
           begin
             if LJSONParser.FindValue('message.from.id') <> nil then
-              FUserID := LJSONParser.FindValue('message.from.id').Value; //≈го »ƒ по которому можем ему написать
+              FUserID := LJSONParser.FindValue('message.from.id').Value; //ID user who sent a message
 
             if LJSONParser.FindValue('message.from.first_name') <> nil then
               FUserName := LJSONParser.FindValue('message.from.first_name').Value;
 
             if (LJSONParser.FindValue('message.from.first_name') <> nil) and (LJSONParser.FindValue('message.from.last_name') <> nil) then
-              FUserName := LJSONParser.FindValue('message.from.first_name').Value + ' ' + LJSONParser.FindValue('message.from.last_name').Value; //Ёто им€ написавшего боту
+              FUserName := LJSONParser.FindValue('message.from.first_name').Value + ' ' + LJSONParser.FindValue('message.from.last_name').Value; //This is the name of the person who wrote to the bot
 
             if LJSONParser.FindValue('message.text') <> nil then
-              FUserMessage :=  LJSONParser.FindValue('message.text').Value;  //“екст сообщени€
-            Synchronize(Status); // —ообщим что есть ответ
+              FUserMessage :=  LJSONParser.FindValue('message.text').Value;  //Text of message
+            Synchronize(Status); // Let us know that there is an answer
           end;
           PrevOffset := LResronseList.Count;
         end;

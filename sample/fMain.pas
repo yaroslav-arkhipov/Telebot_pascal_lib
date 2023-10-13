@@ -15,6 +15,8 @@ type
     edtMsg: TEdit;
     btnSendLocation: TButton;
     btnSendFile: TButton;
+    btnSendPhoto: TButton;
+    btnSendVideo: TButton;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure btnBotCheckClick(Sender: TObject);
@@ -22,11 +24,13 @@ type
     procedure btnGetMessagesClick(Sender: TObject);
     procedure btnSendLocationClick(Sender: TObject);
     procedure btnSendFileClick(Sender: TObject);
+    procedure btnSendPhotoClick(Sender: TObject);
+    procedure btnSendVideoClick(Sender: TObject);
   private
     FBot: TTeleBot;
     procedure CallBack(AUserID, AUserName, AUserMessage: String);
   private const
-    cToken = <Enter your Telegrambot API key>;
+    cToken = '5817346447:AAF_5gkaMscqRanNZbDMJuVHpXvf0A3Qsis';
   public
     { Public declarations }
   end;
@@ -57,7 +61,7 @@ procedure TForm12.btnSendFileClick(Sender: TObject);
 var
   LResponse: String;
 begin
-  LResponse := FBot.SendFile(<Enter dialog ID>, <Enter File name>);
+  LResponse := FBot.SendFile('1949936118', 'H:\Local-Rep\Admin_f7\Resources\48\Info.bmp');
   Memo1.Lines.Add(LResponse);
 end;
 
@@ -65,7 +69,7 @@ procedure TForm12.btnSendLocationClick(Sender: TObject);
 var
   LResponse: String;
 begin
-  LResponse := FBot.SendLocation(<Enter dialog ID>, <Enter Latitude>, <Enter Longitude>);
+  LResponse := FBot.SendLocation('1949936118', '2.4075', '48.8323');
   Memo1.Lines.Add(LResponse);
 end;
 
@@ -73,7 +77,23 @@ procedure TForm12.btnSendMessageClick(Sender: TObject);
 var
   LResponse: String;
 begin
-  LResponse := FBot.SendMessage(<Enter dialog ID>, edtMsg.Text);
+  LResponse := FBot.SendMessage('5008316716', edtMsg.Text);
+  Memo1.Lines.Add(LResponse);
+end;
+
+procedure TForm12.btnSendPhotoClick(Sender: TObject);
+var
+  LResponse: String;
+begin
+  LResponse := FBot.SendPhoto('1949936118', '\\sto-s\folder_redirection\VDI_Development_Delphi\yaarhipov\Downloads\20220429_170910.jpg', 'Hi');
+  Memo1.Lines.Add(LResponse);
+end;
+
+procedure TForm12.btnSendVideoClick(Sender: TObject);
+var
+  LResponse: String;
+begin
+  LResponse := FBot.SendVideo('1949936118', 'H:\Local-Rep\ASC_Common\VideoInstructions\MapRecord от Игоря.mp4', 'Hi');
   Memo1.Lines.Add(LResponse);
 end;
 
